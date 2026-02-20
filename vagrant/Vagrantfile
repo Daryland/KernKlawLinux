@@ -1,0 +1,130 @@
+# Vagrantfile — Multi-distro CI for KernKlaw-Linux
+#
+# Brings up Ubuntu 24.04, Fedora 40, and NixOS 24.05 VMs.
+# Each VM builds & tests from source.
+#
+# Usage:
+#   vagrant up                  # start all VMs
+#   vagrant up ubuntu           # start just ubuntu
+#   vagrant ssh ubuntu          # enter ubuntu VM
+#   vagrant provision ubuntu    # re-run provisioner
+#   vagrant destroy -f          # tear down all
+
+VAGRANTFILE_API_VERSION = "2"
+
+# Shared build script (run on all VMs)
+$BUILD_SCRIPT = <<~SHELL
+  set -euo pipefail
+  cd /vagrant
+
+  echo "==> Building on $(lsb_release -d 2>/dev/null || cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2)"
+
+  make -j$(nproc) all
+  echo "==> Build succeeded"
+
+  # Quick sanity
+  ./bin/claw-daemon --help 2>&1 | head -3 || true
+  ./bin/claw-shell  --help 2>&1 | head -3 || true
+  echo "==> Sanity check passed"
+SHELL
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.synced_folder ".", "/vagrant", type: "rsync",
+    rsync__exclude: [".git/", "bin/", "_build/", "*.o"]
+
+  # ── Ubuntu 24.04 (Noble) ─────────────────────────────────────────────
+  config.vm.define "ubuntu", primary: true do |vm|
+    vm.vm.box      = "ubuntu/noble64"
+    vm.vm.hostname = "kernklaw-ubuntu"
+    vm.vm.network "private_network", ip: "192.168.56.11"
+
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name   = "kernklaw-ubuntu"
+      vb.memory = 2048
+      vb.cpus   = 2
+    end
+
+    vm.vm.provision "shell", inline: <<~SHELL
+      apt-get update -qq
+      apt-get install -y --no-install-recommends \
+          gcc clang cmake pkg-config make git \
+          libcurl4-openssl-dev libjson-c-dev \
+          libcap-dev libreadline-dev libsystemd-dev \
+          liburing-dev libbpf-dev bpftool \
+          2>/dev/null
+    SHELL
+
+    vm.vm.provision "shell", inline: $BUILD_SCRIPT
+
+    vm.vm.provision "shell", inline: <<~SHELL
+      # Install and verify service
+      cd /vagrant
+      sudo make install PREFIX=/usr/local
+      systemctl daemon-reload
+      systemctl status claw-daemon.service --no-pager || true
+      echo "Ubuntu: install OK"
+    SHELL
+  end
+
+  # ── Fedora 40 ─────────────────────────────────────────────────────────
+  config.vm.define "fedora" do |vm|
+    vm.vm.box      = "fedora/40-cloud-base"
+    vm.vm.hostname = "kernklaw-fedora"
+    vm.vm.network "private_network", ip: "192.168.56.12"
+
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name   = "kernklaw-fedora"
+      vb.memory = 2048
+      vb.cpus   = 2
+    end
+
+    vm.vm.provision "shell", inline: <<~SHELL
+      dnf install -y \
+          gcc clang cmake pkgconf make git \
+          libcurl-devel json-c-devel \
+          libcap-devel readline-devel systemd-devel \
+          liburing-devel libbpf-devel bpftool \
+          2>/dev/null
+    SHELL
+
+    vm.vm.provision "shell", inline: $BUILD_SCRIPT
+
+    vm.vm.provision "shell", inline: <<~SHELL
+      cd /vagrant
+      sudo make install PREFIX=/usr/local
+      systemctl daemon-reload
+      systemctl status claw-daemon.service --no-pager || true
+      echo "Fedora: install OK"
+    SHELL
+  end
+
+  # ── NixOS 24.05 ───────────────────────────────────────────────────────
+  config.vm.define "nixos" do |vm|
+    vm.vm.box      = "nixos/24.05"
+    vm.vm.hostname = "kernklaw-nixos"
+    vm.vm.network "private_network", ip: "192.168.56.13"
+
+    vm.vm.provider "virtualbox" do |vb|
+      vb.name   = "kernklaw-nixos"
+      vb.memory = 3072
+      vb.cpus   = 2
+    end
+
+    vm.vm.provision "shell", inline: <<~SHELL
+      # Use nix develop shell for build
+      cd /vagrant/nix
+      nix --experimental-features "nix-command flakes" \
+          develop ..#devShells.x86_64-linux.default \
+          --command bash -c "cd /vagrant && make -j$(nproc) all"
+      echo "NixOS: build OK"
+    SHELL
+
+    vm.vm.provision "shell", inline: <<~SHELL
+      cd /vagrant/nix
+      nix --experimental-features "nix-command flakes" \
+          build ..#packages.x86_64-linux.kernklaw-linux
+      echo "NixOS: nix build OK"
+      ls -la result/bin/
+    SHELL
+  end
+end

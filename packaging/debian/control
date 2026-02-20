@@ -1,0 +1,41 @@
+Source: kernklaw-linux
+Section: utils
+Priority: optional
+Maintainer: KernKlaw Project <kernklaw@example.com>
+Build-Depends: debhelper-compat (= 13),
+               gcc,
+               clang,
+               libcurl4-openssl-dev,
+               libjson-c-dev,
+               libcap-dev,
+               libreadline-dev,
+               libsystemd-dev,
+               liburing-dev,
+               libbpf-dev,
+               bpftool,
+               pkg-config,
+               cmake (>= 3.18)
+Standards-Version: 4.6.0
+Homepage: https://github.com/kernklaw/kernklaw-linux
+
+Package: kernklaw-linux
+Architecture: amd64 arm64
+Depends: ${shlibs:Depends}, ${misc:Depends},
+         libcurl4 (>= 7.68),
+         libjson-c5,
+         libcap2,
+         libreadline8,
+         libsystemd0,
+         liburing2,
+         ollama [amd64] | llama-cpp [any]
+Recommends: bpftool
+Suggests: tailscale
+Description: KernKlaw-Linux — AI assistant daemon for Linux
+ A fully native C implementation of the KernKlaw AI assistant,
+ designed for Linux (Ubuntu/Fedora/NixOS). Features:
+  - Local AI inference via Ollama
+  - eBPF-based system monitoring
+  - io_uring async I/O
+  - Skill plugin system with seccomp sandboxing
+  - Lobster-inspired workflow DSL
+  - Systemd integration (sd_notify, journald)

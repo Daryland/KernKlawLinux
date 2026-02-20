@@ -1,0 +1,21 @@
+{
+  "name": "example",
+  "description": "Echo skill — returns its arguments as JSON (demo/test skill)",
+  "version": "0.1.0",
+  "author": "KernKlaw Project",
+  "type": "exec",
+  "exec": "run.sh",
+  "enabled": true,
+  "requires_root": false,
+  "trigger_event": "",
+  "args_schema": {
+    "type": "object",
+    "properties": {
+      "msg": {
+        "type": "string",
+        "description": "Message to echo back"
+      }
+    },
+    "required": ["msg"]
+  }
+}

@@ -1,0 +1,49 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure)
+    # Create claw system user if it doesn't exist
+    if ! getent passwd claw > /dev/null 2>&1; then
+      adduser --system --group \
+              --home /var/lib/claw \
+              --shell /usr/sbin/nologin \
+              --no-create-home \
+              --comment "KernKlaw daemon" \
+              claw
+    fi
+
+    # Create directories with correct ownership
+    install -d -o claw -g claw -m 755 /run/claw
+    install -d -o claw -g claw -m 755 /var/log/claw
+    install -d -o root -g claw -m 755 /etc/claw
+    install -d -o root -g claw -m 755 /etc/claw/skills
+    install -d -o root -g root -m 755 /usr/lib/claw/bpf
+
+    # Set correct permissions on setuid binary
+    chmod 4755 /usr/local/bin/claw-skill-exec
+    chown root:claw /usr/local/bin/claw-skill-exec
+
+    # Reload systemd and enable service
+    if [ -d /run/systemd/system ]; then
+      systemctl --system daemon-reload >/dev/null 2>&1 || true
+      systemctl enable claw-daemon.service >/dev/null 2>&1 || true
+      systemctl start  claw-daemon.service >/dev/null 2>&1 || true
+    fi
+
+    echo "KernKlaw-Linux installed."
+    echo "  Daemon socket: /run/claw/daemon.sock"
+    echo "  Shell:         claw-shell"
+    echo "  Skill dir:     /etc/claw/skills/"
+    echo "  Status:        systemctl status claw-daemon"
+    ;;
+  abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+  *)
+    echo "postinst: unrecognised argument '$1'" >&2
+    exit 1
+    ;;
+esac
+
+#DEBHELPER#
+exit 0

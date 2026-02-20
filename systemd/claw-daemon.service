@@ -1,0 +1,78 @@
+[Unit]
+Description=KernKlaw-Linux AI Assistant Daemon
+Documentation=https://github.com/kernklaw/kernklaw-linux
+After=network-online.target
+Wants=network-online.target
+# Optional Ollama dependency
+After=ollama.service
+Wants=ollama.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+
+# ── Security hardening ────────────────────────────────────────────────
+User=claw
+Group=claw
+DynamicUser=no
+NoNewPrivileges=yes
+
+# Allow eBPF (needs CAP_BPF or CAP_SYS_ADMIN on older kernels)
+# Remove these if not using eBPF hooks
+AmbientCapabilities=CAP_BPF CAP_SYS_ADMIN CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_BPF CAP_SYS_ADMIN CAP_NET_ADMIN
+
+# Filesystem restrictions
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/run/claw /var/log/claw /etc/claw
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no   # needs to be off for eBPF JIT
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RemoveIPC=yes
+
+# Network
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+
+# System call filtering
+SystemCallFilter=@system-service @network-io @basic-io @io-event
+SystemCallFilter=bpf perf_event_open
+SystemCallArchitectures=native
+
+# Runtime directories
+RuntimeDirectory=claw
+RuntimeDirectoryMode=0755
+LogsDirectory=claw
+LogsDirectoryMode=0755
+
+# ── Process ───────────────────────────────────────────────────────────
+ExecStart=/usr/local/bin/claw-daemon \
+    -c /etc/claw \
+    -s /etc/claw/skills
+
+ExecReload=/bin/kill -HUP $MAINPID
+
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=30s
+TimeoutStopSec=10s
+
+# Limits
+LimitNOFILE=65536
+LimitNPROC=512
+MemoryMax=512M
+CPUQuota=200%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=claw-daemon
+
+[Install]
+WantedBy=multi-user.target
