@@ -1,6 +1,22 @@
 # KernKlaw-Linux
 
-> A fully native Linux port of [KernKlaw](https://github.com/kernklaw/kernklaw) — zero Node.js, zero TypeScript. Pure C99 with deep Linux kernel integration.
+> A fully native Linux port of [OpenClaw](https://github.com/kernklaw/kernklaw) — rewritten from the ground up in pure C99, operating at the kernel level with no Node.js, no TypeScript, no runtime overhead.
+
+---
+
+## What is this?
+
+OpenClaw is an AI assistant daemon — it connects to a local LLM (via Ollama), exposes an interactive shell, and executes extensible "skills" in response to queries or system events.
+
+**KernKlaw-Linux** is a complete reimplementation of that concept designed to live as close to the Linux kernel as possible:
+
+- **eBPF hooks** — kernel tracepoints (`openat`, `write`, `execve`, `tcp_connect`, process exit) feed a BPF ring-buffer directly into the daemon. The AI can react to real kernel events in real time, not polled userspace approximations.
+- **io_uring async I/O** — all Ollama HTTP traffic goes through `io_uring` (kernel ≥ 5.6), bypassing traditional socket syscall overhead for high-throughput skill pipelines.
+- **Kernel namespace sandboxing** — every skill runs inside `claw-skill-exec`, a setuid binary that immediately unshares mount, PID, network, IPC, and user namespaces before dropping all capabilities and applying a strict seccomp allowlist (~35 syscalls). Skills are fully isolated at the kernel level, not by a container runtime.
+- **cgroups v2 resource limits** — CPU time, memory, and process count are enforced by the kernel, not userspace checks.
+- **systemd-native** — the daemon integrates with `sd_notify`, journald, and socket activation; no init wrapper needed.
+
+The result is an AI assistant daemon that is entirely self-contained: one `make`, three binaries, no npm, no interpreter, no VM. It runs on any Linux kernel ≥ 5.6 with BTF support.
 
 ---
 
