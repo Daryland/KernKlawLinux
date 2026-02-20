@@ -1,6 +1,6 @@
 # KernKlaw-Linux
 
-> A fully native Linux port of [OpenClaw](https://github.com/kernklaw/kernklaw) — rewritten from the ground up in pure C99, operating at the kernel level with no Node.js, no TypeScript, no runtime overhead.
+> A fully native Linux port of [OpenClaw](https://github.com/openclaw/openclaw) — rewritten from the ground up in pure C99, operating at the kernel level with no Node.js, no TypeScript, no runtime overhead.
 
 ---
 
